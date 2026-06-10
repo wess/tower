@@ -1,0 +1,20 @@
+{
+  "name": "tower",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "edge": "bun src/edge.ts",
+    "migrate": "bun run src/migrate/index.ts",
+    "build:cli": "bun build --compile --minify src/cli.ts --outfile public/dl/wess",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "atlas": "github:wess/atlas"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}

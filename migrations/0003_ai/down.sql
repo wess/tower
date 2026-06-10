@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS app_ai;
+DROP TABLE IF EXISTS ai_providers;
+DROP TABLE IF EXISTS api_tokens;

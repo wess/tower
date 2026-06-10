@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "allowJs": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["bun"],
+    "paths": {
+      "@atlas/config": ["./node_modules/atlas/packages/config/index.ts"],
+      "@atlas/db": ["./node_modules/atlas/packages/db/index.ts"],
+      "@atlas/migrate": ["./node_modules/atlas/packages/migrate/index.ts"],
+      "@atlas/server": ["./node_modules/atlas/packages/server/index.ts"],
+      "@atlas/edge": ["./node_modules/atlas/packages/edge/index.ts"],
+      "@atlas/cli": ["./node_modules/atlas/packages/cli/index.ts"],
+      "@atlas/auth": ["./node_modules/atlas/packages/auth/index.ts"],
+      "@atlas/admin": ["./node_modules/atlas/packages/admin/index.ts"],
+      "@atlas/security": ["./node_modules/atlas/packages/security/index.ts"],
+      "@atlas/ai": ["./node_modules/atlas/packages/ai/index.ts"]
+    }
+  }
+}
