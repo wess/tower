@@ -1,7 +1,8 @@
+import { token } from "@atlas/auth"
 import { get, halt, pipe, post, putHeader, stream, type Conn } from "@atlas/server"
 import { mkdir } from "node:fs/promises"
-import { authenticate } from "../auth/index.ts"
-import { getApp } from "../apps/index.ts"
+import { authenticate, type AuthClaims } from "../auth/index.ts"
+import { canAccessApp, getApp } from "../apps/index.ts"
 import { config } from "../config/index.ts"
 
 const SERVICES = new Set(["git-upload-pack", "git-receive-pack"])
@@ -33,21 +34,37 @@ exec /usr/local/bin/bun src/git/build.ts "$APP" "$REPO"
   return path
 }
 
-// HTTP Basic against tower users (email + password).
-async function gitAuth(c: Conn): Promise<boolean> {
+// HTTP Basic against tower users (email + password) → the caller's claims.
+async function gitAuth(c: Conn): Promise<AuthClaims | null> {
   const h = c.request.headers.get("authorization") ?? ""
-  if (!h.startsWith("Basic ")) return false
+  if (!h.startsWith("Basic ")) return null
   try {
     const [email, ...rest] = atob(h.slice(6)).split(":")
     const password = rest.join(":")
-    return email && password ? (await authenticate(email, password)) !== null : false
+    if (!email || !password) return null
+    const t = await authenticate(email, password)
+    if (!t) return null
+    return (await token.verify(t, config.authSecret)) as AuthClaims
   } catch {
-    return false
+    return null
   }
 }
 
 function unauthorized(c: Conn): Conn {
   return halt(putHeader(c, "www-authenticate", 'Basic realm="wess.dev"'), 401, "auth required")
+}
+
+// Authenticate + authorize the caller for this repo's app. Members reach only
+// their own apps; the platform owner reaches any. Returns the app name or a
+// halted Conn to short-circuit the route.
+async function repoGate(c: Conn, missing: string): Promise<{ app: string } | { halt: Conn }> {
+  const claims = await gitAuth(c)
+  if (!claims) return { halt: unauthorized(c) }
+  const app = appName(c.params.repo)
+  if (!(await getApp(app))) return { halt: halt(c, 404, missing) }
+  if (!(await canAccessApp(app, claims.uid, claims.role === "owner")))
+    return { halt: halt(c, 403, `you don't have access to "${app}"`) }
+  return { app }
 }
 
 function appName(repo: string): string {
@@ -105,10 +122,9 @@ export const gitRoutes = [
     pipe(async (c) => {
       const service = c.query.service ?? ""
       if (!SERVICES.has(service)) return halt(c, 400, "smart http only")
-      if (!(await gitAuth(c))) return unauthorized(c)
-      const app = appName(c.params.repo)
-      if (!(await getApp(app))) return halt(c, 404, `no such app "${app}" — run: wess create ${app}`)
-      const repo = await ensureRepo(app)
+      const gate = await repoGate(c, `no such app "${appName(c.params.repo)}" — run: wess create ${appName(c.params.repo)}`)
+      if ("halt" in gate) return gate.halt
+      const repo = await ensureRepo(gate.app)
 
       const refs = await runService(service, repo, null, true)
       const header = new TextEncoder().encode(pktLine(`# service=${service}\n`) + "0000")
@@ -127,10 +143,9 @@ export const gitRoutes = [
   post(
     "/git/:repo/git-receive-pack",
     pipe(async (c) => {
-      if (!(await gitAuth(c))) return unauthorized(c)
-      const app = appName(c.params.repo)
-      if (!(await getApp(app))) return halt(c, 404, "no such app")
-      const repo = await ensureRepo(app)
+      const gate = await repoGate(c, "no such app")
+      if ("halt" in gate) return gate.halt
+      const repo = await ensureRepo(gate.app)
       const out = await runService("git-receive-pack", repo, requestBody(c), false)
       return stream(gitHeaders(c, "application/x-git-receive-pack-result"), 200, out)
     }),
@@ -140,10 +155,9 @@ export const gitRoutes = [
   post(
     "/git/:repo/git-upload-pack",
     pipe(async (c) => {
-      if (!(await gitAuth(c))) return unauthorized(c)
-      const app = appName(c.params.repo)
-      if (!(await getApp(app))) return halt(c, 404, "no such app")
-      const repo = await ensureRepo(app)
+      const gate = await repoGate(c, "no such app")
+      if ("halt" in gate) return gate.halt
+      const repo = await ensureRepo(gate.app)
       const out = await runService("git-upload-pack", repo, requestBody(c), false)
       return stream(gitHeaders(c, "application/x-git-upload-pack-result"), 200, out)
     }),

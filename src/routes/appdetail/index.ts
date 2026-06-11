@@ -1,6 +1,7 @@
 import { get, halt, parseForm, pipe, pipeline, post, redirect, type Conn } from "@atlas/server"
 import {
   appSecrets,
+  canAccessApp,
   deployApp,
   destroyApp,
   ensureDatabase,
@@ -11,7 +12,7 @@ import {
 } from "../../apps/index.ts"
 import { browse, columns, dbUrlFor, listTables, runQuery } from "../../dbmgr/index.ts"
 import { escapeHtml, html } from "../../web/html.ts"
-import { head, owner, table, topbar } from "../admin/index.ts"
+import { head, session, table, topbar } from "../admin/index.ts"
 
 const MANAGED = new Set(["DATABASE_URL", "PORT", "AI_GATEWAY_URL", "AI_GATEWAY_KEY", "AI_MODEL", "AI_PROVIDER"])
 
@@ -256,9 +257,13 @@ async function dbPage(name: string, claims: any, q: Record<string, string>, quer
 </div></body></html>`
 }
 
+// Authenticated AND authorized for this app: members reach only their own apps;
+// the owner reaches any. Unauthorized → bounced to the dashboard (no 404 leak).
 async function guard(c: Conn): Promise<any> {
-  const claims = await owner(c)
+  const claims = await session(c)
   if (!claims) return redirect(c, "/admin/login")
+  if (!(await canAccessApp(c.params.name, claims.uid, claims.role === "owner")))
+    return redirect(c, "/admin")
   return claims
 }
 

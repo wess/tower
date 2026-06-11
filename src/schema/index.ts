@@ -8,6 +8,7 @@ export const apps = defineSchema("apps", {
   name: column.text().unique(),
   image: column.text().nullable(),
   status: column.text().default("created"),
+  owner_id: column.integer().ref("users", "id").nullable(),
   created_at: column.timestamp(),
   updated_at: column.timestamp(),
 })
@@ -95,6 +96,22 @@ export const app_ai = defineSchema("app_ai", {
   created_at: column.timestamp(),
 })
 export type AppAi = RowOf<typeof app_ai>
+
+// Invite-only registration: a member mints an invite (single-use code), shares
+// the link, and the recipient registers against it. invited_by/accepted_by tie
+// the social graph together; role is what the new account is granted.
+export const invites = defineSchema("invites", {
+  id: column.uuid().primaryKey(),
+  code: column.text().unique(),
+  email: column.text().nullable(), // optional: restrict/pre-fill the recipient
+  role: column.text().default("member"),
+  invited_by: column.integer().ref("users", "id"),
+  accepted_by: column.integer().ref("users", "id").nullable(),
+  accepted_at: column.timestamp().nullable(),
+  expires_at: column.timestamp().nullable(),
+  created_at: column.timestamp(),
+})
+export type Invite = RowOf<typeof invites>
 
 export const sessions = defineSchema("sessions", {
   id: column.text().primaryKey(),

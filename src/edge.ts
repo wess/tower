@@ -1,5 +1,6 @@
 import { defineEdge, forward, LETSENCRYPT_PROD, proxy, type ForwardContext, type Site } from "@atlas/edge"
 import { config } from "./config/index.ts"
+import { landing, renderDoc } from "./towersite/index.ts"
 
 // Public TLS front for wess.dev and every app subdomain. The app list comes
 // from apps.json (maintained by tower, which restarts this service whenever an
@@ -31,7 +32,7 @@ async function resolveMachine(app: string): Promise<Target | null> {
 
 const downPage = (app: string) =>
   new Response(
-    `<!doctype html><html><head><title>${app} · wess.dev</title><style>body{font-family:ui-sans-serif,system-ui;background:#2e3440;color:#eceff4;display:grid;place-items:center;min-height:100vh;margin:0;-webkit-font-smoothing:antialiased}div{text-align:center}h1{font-size:42px;letter-spacing:-.02em}p{color:#94a1b8}b{color:#88c0d0}</style></head><body><div><h1>${app}<b>.</b>wess.dev</h1><p>This app isn't running right now.</p></div></body></html>`,
+    `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${app} · wess.dev</title><style>body{font-family:ui-sans-serif,system-ui;background:#2e3440;color:#eceff4;display:grid;place-items:center;min-height:100vh;margin:0;-webkit-font-smoothing:antialiased}div{text-align:center;padding:24px}h1{font-size:clamp(28px,8vw,42px);letter-spacing:-.02em;word-break:break-word}p{color:#94a1b8}b{color:#88c0d0}</style></head><body><div><h1>${app}<b>.</b>wess.dev</h1><p>This app isn't running right now.</p></div></body></html>`,
     { status: 503, headers: { "content-type": "text/html; charset=utf-8" } },
   )
 
@@ -60,6 +61,32 @@ function appSite(name: string): Site {
   }
 }
 
+// The Tower project's own site — static, rendered right here at the edge for
+// tower.<baseDomain>. No app/microVM: it's part of the platform repo.
+function html(body: string, status = 200): Response {
+  return new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8" } })
+}
+
+function towerSite(): Site {
+  return {
+    host: `tower.${config.baseDomain}`,
+    compress: ["gzip"],
+    routes: [
+      {
+        handler: (req: Request): Response => {
+          const { pathname } = new URL(req.url)
+          if (pathname === "/" || pathname === "") return html(landing())
+          if (pathname === "/health") return new Response("ok")
+          if (pathname === "/docs" || pathname === "/docs/") return html(renderDoc("index"))
+          const m = pathname.match(/^\/docs\/([a-z0-9]+)\/?$/)
+          if (m) return html(renderDoc(m[1]!))
+          return html(landing(), 404)
+        },
+      },
+    ],
+  }
+}
+
 async function appList(): Promise<{ name: string }[]> {
   try {
     return (await Bun.file(config.appsFile).json()) as { name: string }[]
@@ -75,6 +102,7 @@ const sites: Site[] = [
     compress: ["gzip"],
     routes: [{ handler: proxy(TOWER) }],
   },
+  towerSite(),
   ...apps.map((a) => appSite(a.name)),
 ]
 

@@ -19,17 +19,39 @@ export type AuthClaims = {
   app?: string | null
 }
 
-// Register a user. The FIRST registrant becomes the platform owner.
-export async function register(email: string, password: string): Promise<User> {
+// Register a user. Invite-only: the FIRST registrant bootstraps the platform
+// owner (no invite needed); everyone after must present a valid invite code.
+export async function register(
+  email: string,
+  password: string,
+  inviteCode?: string,
+): Promise<User> {
+  const normEmail = email.trim().toLowerCase()
   const existing = await db.all<User>(from(users).limit(1))
-  const role = existing.length === 0 ? "owner" : "member"
+  const bootstrap = existing.length === 0
+
+  let role = "owner"
+  if (!bootstrap) {
+    if (!inviteCode) throw new Error("an invite is required to register")
+    const { checkInvite } = await import("../invites/index.ts")
+    const res = await checkInvite(inviteCode, normEmail)
+    if (!res.ok) throw new Error(res.error)
+    role = res.role
+  }
+
   const password_hash = await hash(password)
   const rows = await db.all<User>(
     from(users)
-      .insert({ email, password: password_hash, role })
+      .insert({ email: normEmail, password: password_hash, role })
       .returning("id", "email", "role", "created_at"),
   )
-  return rows[0]
+  const user = rows[0]
+
+  if (!bootstrap && inviteCode) {
+    const { acceptInvite } = await import("../invites/index.ts")
+    await acceptInvite(inviteCode, Number(user.id))
+  }
+  return user
 }
 
 // Verify credentials, returning a signed JWT or null.
@@ -106,6 +128,12 @@ export async function requireOwner(c: Conn): Promise<Conn> {
   const claims = next.assigns.auth as AuthClaims
   if (claims.role !== "owner") return halt(next, 403, { error: "owner only" })
   return next
+}
+
+// Remove a member account (owner-only, enforced at the route). Their apps'
+// owner_id is set NULL by the FK; the owner can then reclaim or destroy them.
+export async function removeUser(id: number): Promise<void> {
+  await db.execute(from(users).where((q) => q("id").equals(id)).del())
 }
 
 export async function changePassword(

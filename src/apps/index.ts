@@ -16,24 +16,45 @@ import {
 const NAME_RE = /^[a-z][a-z0-9]{2,30}$/
 const RESERVED = new Set(["www", "api", "git", "admin", "docs", "dl", "mail", "smtp", "ns1", "ns2"])
 
-export async function createApp(name: string, image?: string): Promise<App> {
+export async function createApp(name: string, ownerId: number, image?: string): Promise<App> {
   if (!NAME_RE.test(name)) throw new Error("invalid app name (lowercase letters+digits, 3-31 chars)")
   if (RESERVED.has(name)) throw new Error(`"${name}" is a reserved name`)
   const rows = await db.all<App>(
     from(apps)
-      .insert({ name, image: image ?? null })
-      .returning("id", "name", "image", "status", "created_at", "updated_at"),
+      .insert({ name, image: image ?? null, owner_id: ownerId })
+      .returning("id", "name", "image", "status", "owner_id", "created_at", "updated_at"),
   )
   await syncEdge()
   return rows[0]
 }
 
+// All apps (platform-wide). Used by the edge site list + the owner dashboard.
 export async function listApps(): Promise<App[]> {
   return db.all<App>(from(apps).orderBy("created_at", "DESC"))
 }
 
+// Apps visible to a user: the owner sees everything, members see only their own.
+export async function listAppsForUser(uid: number, isOwner: boolean): Promise<App[]> {
+  if (isOwner) return listApps()
+  return db.all<App>(
+    from(apps).where((q) => q("owner_id").equals(uid)).orderBy("created_at", "DESC"),
+  )
+}
+
 export async function getApp(name: string): Promise<App | null> {
   return db.one<App>(from(apps).where((q) => q("name").equals(name)))
+}
+
+// Authorize a user against an app by name: owner role passes for any app;
+// members pass only for apps they own.
+export async function canAccessApp(
+  name: string,
+  uid: number,
+  isOwner: boolean,
+): Promise<boolean> {
+  if (isOwner) return true
+  const app = await getApp(name)
+  return !!app && Number(app.owner_id) === uid
 }
 
 export async function appMachines(appId: string): Promise<Machine[]> {

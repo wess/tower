@@ -79,7 +79,14 @@ ${FONTS}
   .d1{animation-delay:.05s}.d2{animation-delay:.13s}.d3{animation-delay:.21s}.d4{animation-delay:.29s}
   @keyframes rise{to{opacity:1;transform:none}}
   @media (prefers-reduced-motion:reduce){.reveal{animation:none;opacity:1;transform:none}}
-  @media (max-width:680px){.row .body{grid-template-columns:1fr}.row{grid-template-columns:40px 1fr}}
+  @media (max-width:680px){
+    .row .body{grid-template-columns:1fr}.row{grid-template-columns:40px 1fr}
+    header{padding:20px 0}
+    nav{gap:18px;font-size:13px} nav .powered{display:none}
+    .cta{gap:14px} .cta .btn.primary{display:block;width:100%;text-align:center}
+    footer{flex-direction:column;align-items:flex-start} .foot-meta{text-align:left}
+  }
+  @media (max-width:380px){ nav{gap:14px} nav a{font-size:12.5px} }
 </style>
 </head>
 <body>

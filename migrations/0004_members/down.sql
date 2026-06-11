@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS invites;
+DROP INDEX IF EXISTS apps_owner_id_idx;
+ALTER TABLE apps DROP COLUMN IF EXISTS owner_id;

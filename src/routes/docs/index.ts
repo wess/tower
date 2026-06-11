@@ -13,9 +13,9 @@ const p = (s: string) => `<p>${s}</p>`
 const h2 = (s: string) => `<h2>${esc(s)}</h2>`
 const note = (s: string) => `<div class="note">${s}</div>`
 const tbl = (head: string[], rows: string[][]) =>
-  `<table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows
+  `<div class="tw"><table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows
     .map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`)
-    .join("")}</tbody></table>`
+    .join("")}</tbody></table></div>`
 
 type Page = { title: string; nav: string; body: string }
 
@@ -370,7 +370,15 @@ const CSS = `
   .brand b{color:var(--accent)} .brand .sub{color:var(--muted);font-weight:400;font-family:var(--sans);font-size:13px;margin-left:8px}
   .top nav a{color:var(--ink-soft);font-size:14px;font-weight:500;margin-left:22px} .top nav a:hover{color:var(--accent);text-decoration:none}
   .shell{display:grid;grid-template-columns:230px 1fr;gap:clamp(28px,5vw,72px);max-width:1100px;margin:0 auto;padding:clamp(28px,5vw,56px) clamp(20px,5vw,52px)}
-  @media(max-width:760px){.shell{grid-template-columns:1fr}.side{position:static;border-right:none;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:8px}}
+  @media(max-width:760px){
+    .shell{grid-template-columns:1fr;gap:20px}
+    .top{padding:16px 18px} .brand .sub{display:none} .top nav a{margin-left:16px;font-size:13px}
+    /* collapse the sidebar into a horizontal scrolling tab strip */
+    .side{position:static;align-self:stretch;display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:4px}
+    .side .cap{display:none}
+    .side a{flex:0 0 auto;display:block;border-left:none;border-bottom:2px solid transparent;padding:7px 12px;white-space:nowrap}
+    .side a.on{border-left:none;border-bottom-color:var(--accent)}
+  }
   .side{position:sticky;top:24px;align-self:start}
   .side .cap{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:600;margin-bottom:12px}
   .side a{display:block;color:var(--ink-soft);font-size:14.5px;padding:7px 0 7px 14px;border-left:2px solid var(--line)}
@@ -378,8 +386,9 @@ const CSS = `
   .side a.on{color:var(--ink);font-weight:600;border-left-color:var(--accent)}
   main h1{font-family:var(--serif);font-size:clamp(32px,5vw,46px);font-weight:900;letter-spacing:-.025em;line-height:1.05;margin-bottom:22px}
   main h2{font-family:var(--serif);font-size:22px;font-weight:600;letter-spacing:-.01em;margin:38px 0 12px}
-  main p{margin:0 0 16px;color:var(--ink-soft);max-width:62ch} main p b{color:var(--ink)}
-  main code{font-family:var(--mono);font-size:.86em;background:var(--bg-2);border:1px solid var(--line-2);padding:1px 5px;border-radius:4px;color:var(--accent)}
+  main p{margin:0 0 16px;color:var(--ink-soft);max-width:62ch;overflow-wrap:break-word} main p b{color:var(--ink)}
+  main code{font-family:var(--mono);font-size:.86em;background:var(--bg-2);border:1px solid var(--line-2);padding:1px 5px;border-radius:4px;color:var(--accent);overflow-wrap:anywhere}
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .snip{margin:18px 0 22px;border:1px solid var(--line-2);background:var(--bg-1);border-radius:10px;box-shadow:0 14px 40px -22px rgba(0,0,0,.7);overflow:hidden}
   .snip figcaption{font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:600;color:var(--accent);padding:9px 16px;border-bottom:1px solid var(--line);background:var(--bg-2)}
   .snip pre{padding:16px 18px;font-family:var(--mono);font-size:13px;line-height:1.75;overflow-x:auto;color:var(--fg-2)}
