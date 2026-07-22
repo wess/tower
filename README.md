@@ -161,3 +161,5 @@ Tower is a Bun + TypeScript control plane. Deploys boot app images as Firecracke
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
+
+♥ [Sponsor this project](https://github.com/sponsors/wess)
